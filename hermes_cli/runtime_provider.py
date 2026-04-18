@@ -275,13 +275,17 @@ def _get_named_custom_provider(requested_provider: str) -> Optional[Dict[str, An
     # ``custom:local`` always target the saved custom provider.
     if requested_norm == "auto":
         return None
-    if not requested_norm.startswith("custom:"):
+    if requested_norm.startswith("custom:"):
+        pass  # skip straight to providers dict for explicit custom: naming
+    elif requested_norm != "auto":
         try:
-            auth_mod.resolve_provider(requested_norm)
+            result = auth_mod.resolve_provider(requested_norm)
         except AuthError:
             pass
         else:
-            return None
+            if result != "custom":
+                return None  # it's a real standalone built-in — don't check providers dict
+            # resolved to 'custom' (alias like ollama/vllm/lmstudio) — fall through to custom providers
 
     config = load_config()
     
@@ -454,7 +458,7 @@ def _resolve_openrouter_runtime(
         if requested_norm == "auto":
             if not cfg_provider or cfg_provider == "auto":
                 use_config_base_url = True
-        elif requested_norm == "custom" and cfg_provider == "custom":
+        elif requested_norm == "custom" and (cfg_provider == "custom" or cfg_provider.startswith("custom:")):
             use_config_base_url = True
 
     base_url = (
